@@ -1,0 +1,58 @@
+/*
+ * Copyright (C) Rida Bazzi, 2019
+ *
+ * Do not share this file with anyone
+ */
+#ifndef __PARSER_H__
+#define __PARSER_H__
+
+#include <string>
+#include <vector> // Include for std::vector
+#include "lexer.h"
+
+class Parser {
+private:
+    LexicalAnalyzer lexer;
+    void reportError(const std::string& message, int line_no);
+    void syntax_error();
+    void semantic_error(std::string code, std::vector<int> line_no);
+    Token expect(TokenType expected_type);
+
+    // Parsing functions
+    
+    void parse_program();
+    void parse_tasks_section();
+    void parse_poly_section();
+    struct poly_decl_t parsePolyDecl();
+    struct poly_header_t parsePolyHeader();
+    Token parsePolyName();
+    std::vector<std::string> parseIdList();
+    std::string parseId();
+    std::vector<Token> parsePolyBody();
+    void parseTermList(std::vector<Token> &terms);
+    void parse_poly_decl_list();
+    void parseTerm(std::vector<Token> &terms);
+    void parseTermListPrime(std::vector<Token>& terms);
+    void parseMonomialList(std::vector<Token>& terms);
+    void parseMonomial(std::vector<Token>& terms);
+    void parse_execute_section();
+    void statementList();
+    void statement();
+    void inputStatement();
+    void outputStatement();
+    void assignmentStatement();
+    void poly_evaluation();
+    vector <Token> argument_list();
+    void parseExpression();  // If needed
+    void parse_inputs_section();
+    void parseInput();
+    void check_semantic_error3();
+
+public:
+    Parser(); // Constructor is important!
+    void ConsumeAllInput(); // If you still need it for testing
+    void parse_input();
+
+};
+
+#endif // __PARSER_H__
