@@ -7,6 +7,7 @@
 #define __PARSER_H__
 
 #include <string>
+#include <iostream>
 #include <vector> // Include for std::vector
 #include "lexer.h"
 
@@ -21,6 +22,7 @@ private:
     // Parsing functions
     
     void parse_program();
+    void check_semantic_error2();
     void parse_tasks_section();
     void parse_poly_section();
     struct poly_decl_t parsePolyDecl();
@@ -37,14 +39,16 @@ private:
     void parseMonomial(std::vector<Token>& terms);
     void parse_execute_section();
     void statementList();
+    void check_semantic_error4();
     void statement();
     void inputStatement();
     void outputStatement();
     void assignmentStatement();
     void poly_evaluation();
-    vector <Token> argument_list();
+    std::vector <Token> argument_list();
     void parseExpression();  // If needed
     void parse_inputs_section();
+    void check_semantic_error1();
     void parseInput();
     void check_semantic_error3();
 

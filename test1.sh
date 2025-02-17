@@ -1,16 +1,16 @@
 #!/bin/bash
 
-if [ ! -d "./provided_tests" ]; then
+if [ ! -d "../provided_tests" ]; then
     echo "Error: tests directory not found!"
     exit 1
 fi
 
-if [ ! -e "./a.out" ]; then
+if [ ! -e "../bin/a.out" ]; then
     echo "Error: a.out not found!"
     exit 1
 fi
 
-if [ ! -x "./a.out" ]; then
+if [ ! -x "../bin/a.out" ]; then
     echo "Error: a.out not executable!"
     exit 1
 fi
@@ -20,13 +20,13 @@ let all=0
 
 mkdir -p ./output
 
-for test_file in $(find ./provided_tests -type f -name "*.txt" | sort); do
+for test_file in $(find ../provided_tests -type f -name "*.txt" | sort); do
     all=$((all+1))
     name=`basename ${test_file} .txt`
     expected_file=${test_file}.expected
     output_file=./output/${name}.output
     diff_file=./output/${name}.diff
-    ./a.out < ${test_file} > ${output_file}
+    ../bin/a.out < ${test_file} > ${output_file}
 
 
     folder_name="$(cut -d'/' -f3 <<<"${test_file}")"
