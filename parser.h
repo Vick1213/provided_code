@@ -18,7 +18,7 @@ private:
     void syntax_error();
     void semantic_error(std::string code, std::vector<int> line_no);
     Token expect(TokenType expected_type);
-
+    struct AssignmentF* assignment_recur(AssignmentF* assignment);
     // Parsing functions
     
     void parse_program();
@@ -41,16 +41,18 @@ private:
     void statementList();
     void check_semantic_error4();
     void statement();
+    struct AssignmentF *parse_argument_list();
     void inputStatement();
     void outputStatement();
+    void getAllPolyHeader();
     void assignmentStatement();
-    void poly_evaluation();
+    void test_print_assignments_statement(AssignmentF* assignment);
     std::vector <Token> argument_list();
     void parseExpression();  // If needed
     void parse_inputs_section();
     void check_semantic_error1();
     void parseInput();
-    void check_semantic_error3();
+    void check_semantic_error3(Token id);
 
 public:
     Parser(); // Constructor is important!
