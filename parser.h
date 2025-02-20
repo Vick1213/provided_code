@@ -41,6 +41,7 @@ private:
     void statementList();
     void check_semantic_error4();
     void statement();
+    void check_assignment_arguments(AssignmentF* assignment, std::vector<int>& error_lines);
     struct AssignmentF *parse_argument_list();
     void inputStatement();
     void outputStatement();

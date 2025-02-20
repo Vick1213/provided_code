@@ -25,7 +25,7 @@ we need to store the rest of the poly in poly_decl_t struct
 */
 void Parser::syntax_error()
 {
-    cout << lexer.peek(1).line_no  << lexer.peek(1).lexeme << ": ";
+   
     cout << "SYNTAX ERROR !!!!!&%!!\n";
 
     exit(1);
@@ -72,16 +72,10 @@ void Parser::semantic_error(std::string code, std::vector<int> line_no)
 }
 vector<Token> AllPolyHeaders;
 
-// void Parser::reportError(const std::string& message, int line_no)
-// {
-//     cout << "Semantic Error: " << message << " on line " << line_no << endl;
-//     exit(1);
-// }
 
-// Global vector to store the polynomials
 std::vector<poly_decl_t> Polynomials;
 
-std::vector<Token> id_list; // for storing the ids of poly_name
+std::vector<Token> id_list; 
 struct Assignment
 {
     Token output_id;
@@ -117,8 +111,6 @@ Token Parser::expect(TokenType expected_type)
 
     if (t.token_type != expected_type)
     {
-        cout << "lexer.peek(1).token_type_given: " << lexer.peek(1).token_type << endl;
-    cout << "given token type: " << expected_type << endl;
         syntax_error();
     }
     return t;
@@ -126,11 +118,7 @@ Token Parser::expect(TokenType expected_type)
 Exec execlist;
 vector<Assignment> Assignments;
 vector<int> errorLines3;
-// Parsing
 
-// This function is simply to illustrate the GetToken() function
-// you will not need it for your project and you can delete it
-// the function also illustrates the use of peek(1)
 
 Parser::Parser()
 {
@@ -223,7 +211,6 @@ void Parser::check_semantic_error1()
 }
 void Parser::check_semantic_error2()
 {
-    // if Polynomial[i].header.variables is empty, the then Polynomial.terms should not contain any ID except x
 
     vector<int> error_lines;
 
@@ -307,20 +294,12 @@ struct poly_header_t Parser::parsePolyHeader()
 
         variables = parseIdList();
         expect(RPAREN); // Expect RPAREN
+    }else
+    {
+        variables = {"x"};
     }
 
-    // std::cout << "Polynomial: " << polyName;
-    // if (!variables.empty()) {
-    //     std::cout << "(";
-    //     for (size_t i = 0; i < variables.size(); ++i) {
-    //         std::cout << variables[i];
-    //         if (i < variables.size() - 1) {
-    //             std::cout << ", ";
-    //         }
-    //     }
-    //     std::cout << ")";
-    // }
-    // std::cout << " = ";
+
     header.variables = variables;
     return header;
 }
@@ -403,22 +382,7 @@ void Parser::parseMonomialList(std::vector<Token> &terms)
     }
 }
 
-/**
- * @brief Parses a monomial from the input.
- *
- * This function handles the parsing of a monomial, which can either be an identifier (ID)
- * or a parenthesized term list followed by an optional exponent. The function uses the lexer
- * to get tokens and determine the structure of the monomial.
- *
- * The function performs the following steps:
- * 1. Checks if the next token is an identifier (ID). If so, it consumes the token and stores the lexeme.
- * 2. If the next token is not an ID, it expects a left parenthesis (LPAREN), parses a term list,
- *    and expects a right parenthesis (RPAREN). If the RPAREN is not found, it calls `syntax_error()`.
- * 3. Checks if the next token is a power operator (POWER). If so, it consumes the token, expects a number (NUM)
- *    token for the exponent, and converts the lexeme to an integer. If the conversion fails, it calls `syntax_error()`.
- *
- * @throws std::runtime_error if the expected tokens are not found or if the exponent conversion fails.
- */
+
 void Parser::parseMonomial(std::vector<Token> &terms)
 {
     if (lexer.peek(1).token_type == ID)
@@ -471,35 +435,72 @@ void Parser::parse_execute_section()
     // need this to check againt all the other assigned poly headers
     getAllPolyHeader();
     // execute_section -> EXECUTE { execute_list }
+   
+
     expect(EXECUTE);
     while (lexer.peek(1).token_type != INPUTS && lexer.peek(1).token_type != END_OF_FILE)
     {
         statementList();
     }
+    
     check_semantic_error4();
+    
 }
-
 void Parser::check_semantic_error4()
 {
     // check if all the polynomial arguments for each assignment statement has the right number of arguments
     vector<int> error_lines;
-    for (auto &assignment : Assignments)
+    for (AssignmentF* assignment : execlist.assignments)
     {
-        for (auto &polynomial : Polynomials)
-        {
-            if (assignment.poly_id.lexeme == polynomial.header.poly_name.lexeme)
-            {
-                if (assignment.arguments.size() != polynomial.header.variables.size())
-                {
-                    error_lines.push_back(assignment.poly_id.line_no);
-                }
-            }
-        }
+        check_assignment_arguments(assignment, error_lines);
     }
     if (!error_lines.empty())
     {
-        semantic_error("Code 4", error_lines);
+        semantic_error("Code 4 ", error_lines);
     }
+}
+
+void Parser::check_assignment_arguments(AssignmentF* assignment, vector<int>& error_lines)
+{
+
+    
+    for (const auto &polynomial : Polynomials) // Use const auto& for iteration
+    {
+        
+
+        if (assignment->id.lexeme == polynomial.header.poly_name.lexeme)
+        {
+           
+            int num_args = 0;
+            AssignmentF *current = assignment->child;
+            while (current != nullptr)
+            {
+                num_args++;
+                current = current->sibling;
+            }
+          
+
+            if (num_args != (int)polynomial.header.variables.size())
+            {
+               
+                error_lines.push_back(assignment->id.line_no);
+            } else {
+
+            }
+            break; // Important: Exit loop after finding the polynomial
+        }
+    }
+
+
+
+    AssignmentF* current_child = assignment->child;
+    while(current_child != nullptr) {
+     
+        
+        check_assignment_arguments(current_child, error_lines);
+        current_child = current_child->sibling;
+    }
+
 }
 void Parser::statementList()
 {
@@ -515,56 +516,6 @@ void Parser::statementList()
         semantic_error("Code 3 ", errorLines3);
     }
 }
-// void Parser::check_semantic_error3()
-// {
-//     set<int> error_lines; // Use a set to avoid duplicate line numbers
-
-//     for (int i = 0; i < (int)execlist.assignments.size(); i++)
-//     {
-//         AssignmentF* current = execlist.assignments[i];
-//         queue<AssignmentF*> nodes_to_process;
-//         nodes_to_process.push(current);
-
-//         while (!nodes_to_process.empty())
-//         {
-//             AssignmentF* node = nodes_to_process.front();
-//             nodes_to_process.pop();
-
-//             if (node == nullptr) {
-//                 continue;
-//             }
-
-//             // Skip NUM nodes but continue traversal
-//             if (node->id.token_type == NUM) {
-//                 nodes_to_process.push(node->child);
-//                 nodes_to_process.push(node->sibling);
-//                 continue;
-//             }
-
-//             bool found = false;
-//             for (auto& polynomial : Polynomials) {
-//                 if (node->id.lexeme == polynomial.header.poly_name.lexeme) {
-//                     found = true;
-//                     break;
-//                 }
-//             }
-//             if (!found) {
-//                 error_lines.insert(node->id.line_no); // Insert into set to avoid duplicates
-//             }
-
-//             // Continue BFS traversal
-//             nodes_to_process.push(node->child);
-//             nodes_to_process.push(node->sibling);
-//         }
-//     }
-
-//     // Convert the set to a sorted vector (though the set is already sorted)
-//     vector<int> error_lines_vec(error_lines.begin(), error_lines.end());
-
-//     if (!error_lines_vec.empty()) {
-//         semantic_error("Code 3", error_lines_vec);
-//     }
-// }
 
 void Parser::statement()
 {
@@ -602,107 +553,82 @@ void Parser::outputStatement()
     Token id = expect(ID);
     execlist.Outputs.push_back(id);
 }
-
+vector<string> ArgumentNames;
 void Parser::assignmentStatement()
 {
     Token output_id = expect(ID);
     AssignmentF *newAssignment = new AssignmentF;
+    ArgumentNames.push_back(output_id.lexeme);
+
     newAssignment->id = output_id;
     expect(EQUAL);
     newAssignment->child = nullptr;
     newAssignment->sibling = nullptr;
     assignment_recur(newAssignment);
-    //test_print_assignments_statement(newAssignment);
+  // test_print_assignments_statement(newAssignment);
 
     assignments.push_back(newAssignment);
 }
 
-// void Parser::test_print_assignments_statement(AssignmentF *assignment)
-// {
-//     // create a dfs to print the assignment statement
-//     if (assignment == nullptr)
-//     {
-//         return;
-//     }
-//     AssignmentF *current = assignment;
-//     cout << current->id.lexeme << " ";
-//     if (current->child != nullptr)
-//     {
-//         cout << "(";
-//         test_print_assignments_statement(current->child);
-//         cout << ")";
-//     }
-//     if (current->sibling != nullptr)
-//     {
-//         cout << ", ";
-//         test_print_assignments_statement(current->sibling);
-//     }
-// }
-
-// struct AssignmentF* Parser::assignment_recur(struct AssignmentF* assignment)
-// {
-//     if(lexer.peek(1).token_type == ID)
-//     {
-//         assignment->id = expect(ID);
-//         expect(LPAREN);
-//         if(lexer.peek(1).token_type == ID)
-//         {
-
-//             assignment->child = assignment_recur(new AssignmentF);
-//         }
-//         else if(lexer.peek(1).token_type == NUM)
-//         {
-//             if(assignment->child != nullptr)
-//             {
-//                 assignment->child = new AssignmentF;
-//                 assignment->child->id = expect(NUM);
-//             }
-//             else
-//             {
-//                 cout << "Something has happend that i have no idea how to solve";
-//             }
-//         }
-//         // needs to call the func
-//         expect(RPAREN);
-//     }
-//     else if(lexer.peek(1).token_type == COMMA )
-//     {
-//         expect(COMMA);
-//         if(assignment->sibling != nullptr)
-//         {
-//         assignment->sibling = assignment_recur(new AssignmentF);
-//         }
-
-//     }
-//     else if(lexer.peek(1).token_type == NUM)
-//     {
-//         assignment->id = expect(NUM);
-//     }
-//     else if(lexer.peek(1).token_type == RPAREN || lexer.peek(1).token_type == SEMICOLON)
-//     {
-//         return nullptr;
-//     }
-//     else
-//     {
-//         syntax_error();
-//     }
-//     return assignment;
-
-// }
+void Parser::test_print_assignments_statement(AssignmentF *assignment)
+{
+    // create a dfs to print the assignment statement
+    if (assignment == nullptr)
+    {
+        return;
+    }
+    AssignmentF *current = assignment;
+    cout << current->id.lexeme << " ";
+    if (current->child != nullptr)
+    {
+        cout << "(";
+        test_print_assignments_statement(current->child);
+        cout << ")";
+    }
+    if (current->sibling != nullptr)
+    {
+        cout << ", ";
+        test_print_assignments_statement(current->sibling);
+    }
+}
 
 void Parser::check_semantic_error3(Token id)
 {
     bool found = false;
+    
     for (const auto &header : AllPolyHeaders)
     {
-        for(const auto &inputs : execlist.Inputs)
-        if (id.lexeme == header.lexeme || id.lexeme == inputs.lexeme)
+       
+        if(!execlist.Inputs.empty())
+        {  
+              for(const auto &inputs : execlist.Inputs) {
+                
+                if(id.lexeme == header.lexeme || id.lexeme == inputs.lexeme) {   
+                    
+                    found = true;
+                    
+                }
+            }
+        }
+        else
         {
-            found = true;
+            if(id.lexeme == header.lexeme) {   
+               
+                found = true;
+                
+            }
+        }
+
+            if(std::find(ArgumentNames.begin(), ArgumentNames.end(), id.lexeme) != ArgumentNames.end()) {
+             
+                found = true;
+                
+            }
+        if(found) {
             break;
         }
     }
-    if (!found)
+    if(!found)
     {
         errorLines3.push_back(id.line_no);
     }
@@ -718,7 +644,7 @@ struct AssignmentF *Parser::assignment_recur(struct AssignmentF *assignment)
         if (lexer.peek(1).token_type == LPAREN)
         {
             expect(LPAREN);
-            assignment->child = parse_argument_list(); // Call new function to parse arguments
+            assignment->child = parse_argument_list(); // Use new function with error check
             expect(RPAREN); // Expect the closing parenthesis of the function call
         }
     }
@@ -728,8 +654,7 @@ struct AssignmentF *Parser::assignment_recur(struct AssignmentF *assignment)
     }
     else if (lexer.peek(1).token_type == COMMA)
     {
-        cout << "called comma" << endl;
-        cout << "lexer.peek(1).token_type: " << lexer.peek(1).token_type << endl;
+
         expect(COMMA);
         assignment->sibling = assignment_recur(new AssignmentF);
     }
@@ -744,72 +669,60 @@ struct AssignmentF *Parser::assignment_recur(struct AssignmentF *assignment)
     return assignment;
 }
 
-struct AssignmentF *Parser::parse_argument_list() {
-    AssignmentF *head = nullptr; // Head of the argument list
-    AssignmentF *current = nullptr; // To link arguments
+struct AssignmentF *Parser::parse_argument_list()
+{
+    AssignmentF *head = nullptr;
+    AssignmentF *current = nullptr;
 
-    // Check for empty argument list: e.g., G()
-    if (lexer.peek(1).token_type == RPAREN) {
-        return nullptr; // No arguments
+    if (lexer.peek(1).token_type == RPAREN) // Handle empty argument list: F()
+    {
+        return nullptr;
     }
 
-    while (true) {
-        AssignmentF *arg = assignment_recur(new AssignmentF); // Parse an argument (could be ID, NUM, or another function call)
+    while (true)
+    {
+        AssignmentF *arg = assignment_recur(new AssignmentF()); // Parse an argument (ID or NUM)
+        if (!arg) // If assignment_recur returns nullptr, it might be an error or end of list
+        {
+            // 
+            syntax_error(); // Or more specific error message if possible from assignment_recur
+            return head; // Return whatever we parsed so far, might be partially built list
+        }
 
-        if (!head) {
-            head = current = arg; // First argument
-        } else {
-            current->sibling = arg; // Link arguments as siblings (or you might use child if you want a different AST structure)
+        if (!head)
+        {
+            head = arg;
+            current = head;
+        }
+        else
+        {
+            current->sibling = arg;
             current = arg;
         }
 
-        if (lexer.peek(1).token_type == COMMA) {
-            expect(COMMA); // Expect comma and continue to the next argument
-        } else if (lexer.peek(1).token_type == RPAREN) {
-            break; // End of argument list when we see RPAREN
-        } else {
-            syntax_error(); // Expecting comma or RPAREN after argument
+        if (lexer.peek(1).token_type == COMMA)
+        {
+            expect(COMMA); // Consume the comma
+            if (lexer.peek(1).token_type == RPAREN)
+            {
+                syntax_error(); // Trailing comma detected: F(a,b,) - error here!
+                return head; // Return the list parsed so far
+            }
+            // Continue to next argument
+        }
+        else if (lexer.peek(1).token_type == RPAREN)
+        {
+            break; // End of argument list, no trailing comma
+        }
+        else
+        {
+            syntax_error(); // Unexpected token after argument (not comma or RPAREN)
+            return head; // Return the list parsed so far
         }
     }
-    return head; // Return the head of the argument list
+
+    return head;
 }
-// vector<Token> Parser::argument_list()
-// {
-//     vector<Token> arguments;
-//     while (lexer.peek(1).token_type != RPAREN && lexer.peek(1).token_type != END_OF_FILE && lexer.peek(1).token_type != SEMICOLON)
-//     {
-//         cout << "lexer.peek(1).token_type: " << lexer.peek(1).token_type << endl;
-//         if (lexer.peek(1).token_type == ID)
-//         {
-//             Token id = expect(ID);
-//             arguments.push_back(id);
-
-//             if (lexer.peek(1).token_type == LPAREN)
-//             {
-//                 expect(LPAREN);
-//                 vector<Token> nestedArguments = argument_list();
-//                 arguments.insert(arguments.end(), nestedArguments.begin(), nestedArguments.end());
-//                 expect(RPAREN);
-//             }
-//         }
-//         else if (lexer.peek(1).token_type == NUM)
-//         {
-//             arguments.push_back(expect(NUM));
-//         }
-//         else if (lexer.peek(1).token_type == COMMA)
-//         {
-//             expect(COMMA);
-//         }
-//         else
-//         {
-//             //cout << "called syntax error" << endl;
-//             syntax_error();
-//         }
-//     }
-//     expect(RPAREN);
-//     return arguments;
-// }
-
 void Parser::parse_inputs_section()
 {
     expect(INPUTS);
