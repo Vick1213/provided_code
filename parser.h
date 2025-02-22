@@ -5,11 +5,62 @@
  */
 #ifndef __PARSER_H__
 #define __PARSER_H__
-
+#include <map>
 #include <string>
 #include <iostream>
 #include <vector> // Include for std::vector
 #include "lexer.h"
+struct variable
+{
+    Token id;
+    int val;
+    int exponent =1;
+};
+struct term
+{
+    int coef =1;
+    std::vector<variable> var;
+    Token Sign;
+};
+struct poly_header_t
+{
+    Token poly_name;
+    std::vector<std::string> variables;
+};
+struct Poly_eq{
+    poly_header_t header;
+    std::vector <term> term_list;  
+  };
+
+  struct AssignmentF
+  {
+      Token id;
+      AssignmentF *child;
+      AssignmentF *sibling;
+  
+      AssignmentF() : child(nullptr), sibling(nullptr) {}
+  
+      ~AssignmentF()
+      {
+          delete child;
+          delete sibling;
+      }
+  };
+  
+  struct Exec
+{
+    std::vector<Token> Inputs;
+    std::vector<Token> Outputs;
+    std::vector<AssignmentF *> assignments;
+};
+
+struct execLinkedList
+{
+    AssignmentF* assignment;
+    Token *input;
+    Token *output;
+    execLinkedList* next;
+};
 
 class Parser {
 private:
@@ -27,12 +78,16 @@ private:
     void parse_poly_section();
     struct poly_decl_t parsePolyDecl();
     struct poly_header_t parsePolyHeader();
+    struct execLinkedList* convertExecToLinkedList(Exec& exec);
     Token parsePolyName();
     std::vector<std::string> parseIdList();
     std::string parseId();
     std::vector<Token> parsePolyBody();
     void parseTermList(std::vector<Token> &terms);
     void parse_poly_decl_list();
+    void reparse_poly_section();
+    void print_reparsed_polynomials();
+    std::vector <int> FinalCalc();
     void parseTerm(std::vector<Token> &terms);
     void parseTermListPrime(std::vector<Token>& terms);
     void parseMonomialList(std::vector<Token>& terms);
@@ -45,6 +100,8 @@ private:
     struct AssignmentF *parse_argument_list();
     void inputStatement();
     void outputStatement();
+    int evaluate_expression(AssignmentF *node ,std::map<std::string,int>& symbol_table);
+    int evaluate_polynomial(const Poly_eq& poly, const std::vector<int>& args);
     void getAllPolyHeader();
     void assignmentStatement();
     void test_print_assignments_statement(AssignmentF* assignment);
@@ -54,6 +111,8 @@ private:
     void check_semantic_error1();
     void parseInput();
     void check_semantic_error3(Token id);
+    int cal_assign(AssignmentF* assin, std::vector<variable> &active );
+    int cal_Poly(Poly_eq* poly, const std::vector<int>& args);
 
 public:
     Parser(); // Constructor is important!
