@@ -8,6 +8,7 @@
 #include <map>
 #include <string>
 #include <iostream>
+#include <utility>
 #include <vector> // Include for std::vector
 #include "lexer.h"
 struct variable
@@ -113,6 +114,7 @@ private:
     void check_semantic_error3(Token id);
     int cal_assign(AssignmentF* assin, std::vector<variable> &active );
     int cal_Poly(Poly_eq* poly, const std::vector<int>& args);
+    std::pair<std::vector<variable>, size_t> parse_parenthetical(const std::vector<Token>& tokens, size_t pos);    variable parse_variable(const std::vector<Token>& tokens, size_t& pos);
 
 public:
     Parser(); // Constructor is important!

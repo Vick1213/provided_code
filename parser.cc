@@ -32,7 +32,7 @@ void Parser::syntax_error()
     // cout << "at line no: " << t.line_no << endl;
     // cout << "token type: " << t.token_type << endl;
     // cout << "lexeme: " << t.lexeme << endl;
-     cout << "SYNTAX ERROR !!!!!&%!!\n";
+      cout << "SYNTAX ERROR !!!!!&%!!\n";
 
     exit(1);
 }
@@ -89,9 +89,9 @@ Token Parser::expect(TokenType expected_type)
     
     if (t.token_type != expected_type)
     {
-        // cout << "at line no: " << t.line_no << endl;
-        // cout << "expected type: " << expected_type << endl;
-        // cout << "but got token type: " << t.token_type << endl;
+        //  cout << "at line no: " << t.line_no << endl;
+        //  cout << "expected type: " << expected_type << endl;
+        //  cout << "but got token type: " << t.token_type << endl;
         syntax_error();
     }
     return t;
@@ -139,9 +139,10 @@ void Parser::parse_program()
     parse_tasks_section();
     parse_poly_section();
     reparse_poly_section();
-   // print_reparsed_polynomials();
+    print_reparsed_polynomials();
     parse_execute_section();
     parse_inputs_section();
+    
     FinalCalc();
     //vector <int> n =FinalCalc();
     // for (const int i: n )
@@ -152,137 +153,75 @@ void Parser::parse_program()
 vector<Poly_eq> ParsedPolynomials;
 
 void Parser::reparse_poly_section() {
-    ParsedPolynomials.clear();  // Clear any existing data
+    ParsedPolynomials.clear();
 
     for (const auto& poly_decl : Polynomials) {
         Poly_eq poly_eq;
         poly_eq.header = poly_decl.header;
-
         vector<Token> tokens = poly_decl.terms;
-        vector<term> terms;
 
-        vector<int> separator_indices;
+        // Split into terms using PLUS/MINUS as separators
+        vector<vector<Token>> term_groups;
+        vector<Token> separators;
+        size_t start = 0;
         for (size_t i = 0; i < tokens.size(); ++i) {
             if (tokens[i].token_type == PLUS || tokens[i].token_type == MINUS) {
-                separator_indices.push_back(i);
+                term_groups.emplace_back(tokens.begin() + start, tokens.begin() + i);
+                separators.push_back(tokens[i]);
+                start = i + 1;
             }
         }
+        term_groups.emplace_back(tokens.begin() + start, tokens.end());
 
-        vector<vector<Token>> term_groups;
-        size_t start = 0;
-        for (size_t sep : separator_indices) {
-            vector<Token> group(tokens.begin() + start, tokens.begin() + sep);
-            if (!group.empty()) {
-                term_groups.push_back(group);
-            }
-            start = sep + 1;
-        }
-        vector<Token> last_group(tokens.begin() + start, tokens.end());
-        if (!last_group.empty()) {
-            term_groups.push_back(last_group);
-        }
-
-        vector<Token> separators;
-        for (int sep : separator_indices) {
-            separators.push_back(tokens[sep]);
-        }
-
+        // Parse each term group
+        vector<term> terms;
         for (size_t i = 0; i < term_groups.size(); ++i) {
+            if (term_groups[i].empty()) continue;
+
             term t;
-            Token op;
-            if (i == 0) {
-                op.token_type = PLUS;
-                op.lexeme = "+";
-                op.line_no = 0;
-            } else {
-                op = separators[i - 1];
-            }
+            Token newt;
+            newt.lexeme = "+";
+            newt.line_no = 0;
+            newt.token_type = PLUS;
+           // TokenType plus = PLUS;
+            t.Sign = (i == 0) ? newt : separators[i-1];
+            t.coef = (t.Sign.token_type == MINUS) ? -1 : 1;
 
-            t.Sign = op;
-
-            int sign = (op.token_type == PLUS) ? 1 : -1;
-            int coef = 1;
             size_t pos = 0;
-
-            if (pos < term_groups[i].size() && term_groups[i][pos].token_type == MINUS) {
-                sign *= -1;
+            // Handle explicit coefficient
+            if (term_groups[i][pos].token_type == NUM) {
+                t.coef *= stoi(term_groups[i][pos].lexeme);
+                pos++;
+            } else if (term_groups[i][pos].token_type == MINUS) {
+                t.coef = -1;
                 pos++;
             }
 
-            if (pos < term_groups[i].size() && term_groups[i][pos].token_type == NUM) {
-                coef = stoi(term_groups[i][pos].lexeme) * sign;
-                pos++;
-            } else if (sign == -1) {
-                coef = -1;
-            }
-
-            t.coef = coef;
-
+            // Parse variables and groups
             while (pos < term_groups[i].size()) {
                 if (term_groups[i][pos].token_type == ID) {
-                    variable var;
-                    var.id = term_groups[i][pos];
-                    var.exponent = 1;
-                    pos++;
-                    if (pos < term_groups[i].size() && term_groups[i][pos].token_type == POWER) {
-                        pos++;
-                        if (pos < term_groups[i].size() && term_groups[i][pos].token_type == NUM) {
-                            var.exponent = stoi(term_groups[i][pos].lexeme);
-                            pos++;
-                        } else {
-                            //cout << "caused by the parser1" << endl;
-                            syntax_error();
-                        }
-                    }
+                    variable var = parse_variable(term_groups[i], pos);
                     t.var.push_back(var);
                 } else if (term_groups[i][pos].token_type == LPAREN) {
                     pos++;
-                    vector<variable> group_vars;
-                    while (pos < term_groups[i].size() && term_groups[i][pos].token_type != RPAREN) {
-                        if (term_groups[i][pos].token_type == ID) {
-                            variable var;
-                            var.id = term_groups[i][pos];
-                            var.exponent = 1;
-                            pos++;
-                            if (pos < term_groups[i].size() && term_groups[i][pos].token_type == POWER) {
-                                pos++;
-                                if (pos < term_groups[i].size() && term_groups[i][pos].token_type == NUM) {
-                                    var.exponent = stoi(term_groups[i][pos].lexeme);
-                                    pos++;
-                                } else {
-                                   // cout << "caused by the parser2" << endl;
-                                    syntax_error();
-                                }
-                            }
-                            group_vars.push_back(var);
-                        } else {
-                            syntax_error();
-                        }
-                    }
-                    // if (pos >= term_groups[i].size() || term_groups[i][pos].token_type != RPAREN) {
-                    //     cout << "caused by the parser3" << endl;
-                    //     syntax_error();
-                    // }
-                    pos++;
+                    auto [inner_terms, new_pos] = parse_parenthetical(term_groups[i], pos);
+                    pos = new_pos;
+                    
+                    // Apply any exponent to the entire group
+                    int group_exp = 1;
                     if (pos < term_groups[i].size() && term_groups[i][pos].token_type == POWER) {
                         pos++;
-                        if (pos < term_groups[i].size() && term_groups[i][pos].token_type == NUM) {
-                            int exp = stoi(term_groups[i][pos].lexeme);
-                            for (auto& v : group_vars) {
-                                v.exponent *= exp;
-                            }
-                            pos++;
-                        } else {
-                          //  cout << "caused by the parser4" << endl;
-                            syntax_error();
-                        }
+                        group_exp = stoi(term_groups[i][pos].lexeme);
+                        pos++;
                     }
-                    for (const auto& v : group_vars) {
-                        t.var.push_back(v);
+
+                    // Distribute group exponent to each variable
+                    for (auto& inner_var : inner_terms) {
+                        inner_var.exponent *= group_exp;
+                        t.var.push_back(inner_var);
                     }
                 } else {
-                   // cout << "caused by the parser5" << endl;
-                    break;
+                    pos++; // Skip unexpected tokens (add error handling)
                 }
             }
 
@@ -292,6 +231,35 @@ void Parser::reparse_poly_section() {
         poly_eq.term_list = terms;
         ParsedPolynomials.push_back(poly_eq);
     }
+}
+
+// Helper function to parse variables with exponents
+variable Parser::parse_variable(const vector<Token>& tokens, size_t& pos) {
+    variable var;
+    var.id = tokens[pos++];
+    var.exponent = 1;
+
+    if (pos < tokens.size() && tokens[pos].token_type == POWER) {
+        pos++;
+        var.exponent = stoi(tokens[pos++].lexeme);
+    }
+    return var;
+}
+
+// Helper function to parse content inside parentheses
+pair<vector<variable>, size_t> Parser::parse_parenthetical(
+    const vector<Token>& tokens, size_t pos
+) {
+    vector<variable> vars;
+    while (pos < tokens.size() && tokens[pos].token_type != RPAREN) {
+        if (tokens[pos].token_type == ID) {
+            vars.push_back(parse_variable(tokens, pos));
+        } else {
+            pos++; // Skip operators (should handle nested terms)
+        }
+    }
+    pos++; // Skip RPAREN
+    return {vars, pos};
 }
 
 
@@ -730,7 +698,7 @@ void Parser::inputStatement()
 {
     expect(INPUT);
     Token id = expect(ID);
-
+    //cout << "got an id" << id.lexeme;
     execlist.Inputs.push_back(id);
 }
 
@@ -749,9 +717,10 @@ void Parser::assignmentStatement()
 
     newAssignment->id = output_id;
     expect(EQUAL);
-    newAssignment->child = nullptr;
+    AssignmentF *newAssignment2 = new AssignmentF;
+    newAssignment->child = newAssignment2;
     newAssignment->sibling = nullptr;
-    assignment_recur(newAssignment);
+    assignment_recur(newAssignment2);
   // test_print_assignments_statement(newAssignment);
 
     assignments.push_back(newAssignment);
@@ -937,31 +906,33 @@ void Parser::parseInput()
 
 
 execLinkedList* Parser::convertExecToLinkedList(Exec& exec) {
-    // Sort assignments by their id's line number
-    std::vector<AssignmentF*> sortedAssignments = exec.assignments;
-    std::sort(sortedAssignments.begin(), sortedAssignments.end(),
-              [](AssignmentF* a, AssignmentF* b) {
-                  return a->id.line_no < b->id.line_no;
-              });
-
-    // Create maps from line number to Input and Output tokens
+    // Create maps for line numbers to respective elements
     std::unordered_map<int, Token*> inputMap;
-    for (auto& inputToken : exec.Inputs) {
-        inputMap[inputToken.line_no] = &inputToken;
+    for (auto& input : exec.Inputs) {
+        inputMap[input.line_no] = &input;
     }
 
     std::unordered_map<int, Token*> outputMap;
-    for (auto& outputToken : exec.Outputs) {
-        outputMap[outputToken.line_no] = &outputToken;
+    for (auto& output : exec.Outputs) {
+        outputMap[output.line_no] = &output;
     }
 
-    // Build the linked list
+    std::unordered_map<int, AssignmentF*> assignmentMap;
+    for (auto assignment : exec.assignments) {
+        assignmentMap[assignment->id.line_no] = assignment;
+    }
+
+    // Collect all unique line numbers from Inputs, Outputs, and assignments
+    std::set<int> allLines;
+    for (const auto& input : exec.Inputs) allLines.insert(input.line_no);
+    for (const auto& output : exec.Outputs) allLines.insert(output.line_no);
+    for (const auto& assignment : exec.assignments) allLines.insert(assignment->id.line_no);
+
+    // Build the linked list in order of line numbers
     execLinkedList* head = nullptr;
     execLinkedList* current = nullptr;
 
-    for (AssignmentF* assignment : sortedAssignments) {
-        int line = assignment->id.line_no;
-
+    for (int line : allLines) {
         Token* input = nullptr;
         auto inputIt = inputMap.find(line);
         if (inputIt != inputMap.end()) {
@@ -974,32 +945,44 @@ execLinkedList* Parser::convertExecToLinkedList(Exec& exec) {
             output = outputIt->second;
         }
 
-        execLinkedList* newNode = new execLinkedList();
-        newNode->assignment = assignment;
-        newNode->input = input;
-        newNode->output = output;
-        newNode->next = nullptr;
+        AssignmentF* assignment = nullptr;
+        auto assignmentIt = assignmentMap.find(line);
+        if (assignmentIt != assignmentMap.end()) {
+            assignment = assignmentIt->second;
+        }
 
-        if (head == nullptr) {
-            head = newNode;
-            current = head;
-        } else {
-            current->next = newNode;
-            current = newNode;
+        // Create a node if there's any data for this line
+        if (input || output || assignment) {
+            execLinkedList* newNode = new execLinkedList();
+            newNode->input = input;
+            newNode->output = output;
+            newNode->assignment = assignment;
+            newNode->next = nullptr;
+
+            if (!head) {
+                head = newNode;
+                current = head;
+            } else {
+                current->next = newNode;
+                current = newNode;
+            }
         }
     }
 
     return head;
 }
 
-
 vector<int> Parser::FinalCalc() {
     execLinkedList* head = convertExecToLinkedList(execlist);
     vector<variable> active;
     execLinkedList* current = head;
 
+
+    // comp_
     while (current != nullptr) {
+        // checking for input
         if (current->input != nullptr) {
+          //  cout << "found inout";
             bool found = false;
             for (auto& active_var : active) {
                 if (active_var.id.lexeme == current->input->lexeme) {
@@ -1008,6 +991,7 @@ vector<int> Parser::FinalCalc() {
                         comp_input.Inputs.erase(comp_input.Inputs.begin());
                         found = true;
                     } else {
+                //        cout << "this causing 8";
                         syntax_error();
                     }
                     break;
@@ -1019,36 +1003,48 @@ vector<int> Parser::FinalCalc() {
                     var.id = *current->input;
                     var.val = comp_input.Inputs[0];
                     comp_input.Inputs.erase(comp_input.Inputs.begin());
+            //        cout << var.id.lexeme << " is added active with val" << var.val ;
                     active.push_back(var);
                 } else {
+             //       cout << "this causing7;";
                     syntax_error();
                 }
             }
         } else if (current->output != nullptr) {
             bool found = false;
+         //   cout << "found output"<< endl;
             for (const auto& active_var : active) {
+             //   cout << "found this lexme output"<< active_var.id.lexeme << endl;
                 if (active_var.id.lexeme == current->output->lexeme) {
+              //      cout << "found active";
                     cout << active_var.val << endl;
                     found = true;
                     break;
                 }
             }
             if (!found) {
+          //      cout << "this causing6;";
                 syntax_error();
             }
         } else if (current->assignment != nullptr) {
+           // cout << "found assign";
+      //     cout << current->assignment->id.lexeme << "this shoould have been WWW" << endl;
+           AssignmentF*  saved_assign = current->assignment;
+           current->assignment = current->assignment->child; 
             int val = cal_assign(current->assignment, active);
             bool found = false;
             for (auto& active_var : active) {
-                if (active_var.id.lexeme == current->assignment->id.lexeme) {
+                if (active_var.id.lexeme == saved_assign->id.lexeme) {
+               //     cout << active_var.id.lexeme << "world foiund";
                     active_var.val = val;
                     found = true;
                     break;
                 }
             }
             if (!found) {
+                
                 variable new_var;
-                new_var.id = current->assignment->id;
+                new_var.id = saved_assign->id;
                 new_var.val = val;
                 active.push_back(new_var);
             }
@@ -1068,6 +1064,7 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
         }
     }
     if (poly == nullptr) {
+       // cout << "this causing5;";
         syntax_error();
         return 0;
     }
@@ -1076,6 +1073,7 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
     AssignmentF* arg = assign->child;
     while (arg != nullptr) {
         if (arg->id.token_type == ID) {
+            //cout << arg->id.lexeme;
             bool found_arg = false;
             for (const auto& var : active) {
                 if (var.id.lexeme == arg->id.lexeme) {
@@ -1085,12 +1083,15 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
                 }
             }
             if (!found_arg) {
+            //    cout << "this causing4;";
+            
                 syntax_error();
                 return 0;
             }
         } else if (arg->id.token_type == NUM) {
             args.push_back(stoi(arg->id.lexeme));
         } else {
+         //   cout << "this causing3;";
             syntax_error();
             return 0;
         }
@@ -1098,6 +1099,7 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
     }
 
     if (args.size() != poly->header.variables.size()) {
+       // cout << "this causing2;";
         syntax_error();
         return 0;
     }
@@ -1112,6 +1114,7 @@ int Parser::cal_Poly(Poly_eq* poly, const vector<int>& args) {
         for (const auto& var : term.var) {
             auto it = find(poly->header.variables.begin(), poly->header.variables.end(), var.id.lexeme);
             if (it == poly->header.variables.end()) {
+             //   cout << "this causing1";
                 syntax_error();
                 return 0;
             }
