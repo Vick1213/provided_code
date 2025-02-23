@@ -139,7 +139,7 @@ void Parser::parse_program()
     parse_tasks_section();
     parse_poly_section();
     reparse_poly_section();
-    print_reparsed_polynomials();
+    //print_reparsed_polynomials();
     parse_execute_section();
     parse_inputs_section();
     
@@ -160,72 +160,91 @@ void Parser::reparse_poly_section() {
         poly_eq.header = poly_decl.header;
         vector<Token> tokens = poly_decl.terms;
 
-        // Split into terms using PLUS/MINUS as separators
-        vector<vector<Token>> term_groups;
-        vector<Token> separators;
-        size_t start = 0;
+        // Split into groups based on parentheses
+        vector<vector<Token>> paren_groups;
+        size_t paren_start = 0;
         for (size_t i = 0; i < tokens.size(); ++i) {
-            if (tokens[i].token_type == PLUS || tokens[i].token_type == MINUS) {
-                term_groups.emplace_back(tokens.begin() + start, tokens.begin() + i);
-                separators.push_back(tokens[i]);
-                start = i + 1;
+            if (tokens[i].token_type == LPAREN || tokens[i].token_type == RPAREN) {
+                paren_groups.emplace_back(tokens.begin() + paren_start, tokens.begin() + i + 1);
+                paren_start = i + 1;
             }
         }
-        term_groups.emplace_back(tokens.begin() + start, tokens.end());
+        if (paren_start < tokens.size()) {
+            paren_groups.emplace_back(tokens.begin() + paren_start, tokens.end());
+        }
 
-        // Parse each term group
         vector<term> terms;
-        for (size_t i = 0; i < term_groups.size(); ++i) {
-            if (term_groups[i].empty()) continue;
+        // Process each parenthesis group to split into term groups
+        for (const auto& group : paren_groups) {
+            vector<vector<Token>> local_term_groups;
+            vector<Token> local_separators;
+            size_t start = 0;
 
-            term t;
-            Token newt;
-            newt.lexeme = "+";
-            newt.line_no = 0;
-            newt.token_type = PLUS;
-           // TokenType plus = PLUS;
-            t.Sign = (i == 0) ? newt : separators[i-1];
-            t.coef = (t.Sign.token_type == MINUS) ? -1 : 1;
-
-            size_t pos = 0;
-            // Handle explicit coefficient
-            if (term_groups[i][pos].token_type == NUM) {
-                t.coef *= stoi(term_groups[i][pos].lexeme);
-                pos++;
-            } else if (term_groups[i][pos].token_type == MINUS) {
-                t.coef = -1;
-                pos++;
-            }
-
-            // Parse variables and groups
-            while (pos < term_groups[i].size()) {
-                if (term_groups[i][pos].token_type == ID) {
-                    variable var = parse_variable(term_groups[i], pos);
-                    t.var.push_back(var);
-                } else if (term_groups[i][pos].token_type == LPAREN) {
-                    pos++;
-                    auto [inner_terms, new_pos] = parse_parenthetical(term_groups[i], pos);
-                    pos = new_pos;
-                    
-                    // Apply any exponent to the entire group
-                    int group_exp = 1;
-                    if (pos < term_groups[i].size() && term_groups[i][pos].token_type == POWER) {
-                        pos++;
-                        group_exp = stoi(term_groups[i][pos].lexeme);
-                        pos++;
-                    }
-
-                    // Distribute group exponent to each variable
-                    for (auto& inner_var : inner_terms) {
-                        inner_var.exponent *= group_exp;
-                        t.var.push_back(inner_var);
-                    }
-                } else {
-                    pos++; // Skip unexpected tokens (add error handling)
+            // Split group into local term groups using PLUS/MINUS
+            for (size_t i = 0; i < group.size(); ++i) {
+                if (group[i].token_type == PLUS || group[i].token_type == MINUS) {
+                    local_term_groups.emplace_back(group.begin() + start, group.begin() + i);
+                    local_separators.push_back(group[i]);
+                    start = i + 1;
                 }
             }
+            local_term_groups.emplace_back(group.begin() + start, group.end());
 
-            terms.push_back(t);
+            // Parse each local term group
+            for (size_t i = 0; i < local_term_groups.size(); ++i) {
+                if (local_term_groups[i].empty()) continue;
+
+                term t;
+                Token default_sign;
+                default_sign.lexeme = "+";
+                default_sign.token_type = PLUS;
+
+                // Determine the sign based on position and local separators
+                if (i == 0) {
+                    t.Sign = default_sign;
+                } else {
+                    t.Sign = local_separators[i - 1];
+                }
+                t.coef = (t.Sign.token_type == MINUS) ? -1 : 1;
+
+                size_t pos = 0;
+                // Handle explicit coefficient
+                if (pos < local_term_groups[i].size() && local_term_groups[i][pos].token_type == NUM) {
+                    t.coef *= stoi(local_term_groups[i][pos].lexeme);
+                    pos++;
+                } else if (pos < local_term_groups[i].size() && local_term_groups[i][pos].token_type == MINUS) {
+                    t.coef *= -1;
+                    pos++;
+                }
+
+                // Parse variables and parenthetical groups
+                while (pos < local_term_groups[i].size()) {
+                    if (local_term_groups[i][pos].token_type == ID) {
+                        variable var = parse_variable(local_term_groups[i], pos);
+                        t.var.push_back(var);
+                    } else if (local_term_groups[i][pos].token_type == LPAREN) {
+                        pos++;
+                        auto [inner_vars, new_pos] = parse_parenthetical(local_term_groups[i], pos);
+                        pos = new_pos;
+
+                        // Handle group exponents
+                        int group_exp = 1;
+                        if (pos < local_term_groups[i].size() && local_term_groups[i][pos].token_type == POWER) {
+                            pos++;
+                            group_exp = stoi(local_term_groups[i][pos].lexeme);
+                            pos++;
+                        }
+
+                        for (auto& var : inner_vars) {
+                            var.exponent *= group_exp;
+                            t.var.push_back(var);
+                        }
+                    } else {
+                        pos++; // Skip unexpected tokens (consider error handling)
+                    }
+                }
+                terms.push_back(t);
+            }
         }
 
         poly_eq.term_list = terms;
@@ -338,6 +357,14 @@ void Parser::parse_poly_section()
 
     parse_poly_decl_list();
 
+    for(const auto & Poly: Polynomials)
+    {
+        for(const auto & term: Poly.terms)
+        {
+            
+            cout<<term.lexeme<< " ";
+        }
+    }
     check_semantic_error1();
     check_semantic_error2();
 
@@ -593,6 +620,10 @@ void Parser::parse_execute_section()
    
 
     expect(EXECUTE);
+    if(lexer.peek(1).token_type == INPUTS || lexer.peek(1).token_type == END_OF_FILE)
+    {
+        syntax_error();
+    }
     while (lexer.peek(1).token_type != INPUTS && lexer.peek(1).token_type != END_OF_FILE)
     {
         statementList();
@@ -1107,22 +1138,84 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
     return cal_Poly(poly, args);
 }
 
-int Parser::cal_Poly(Poly_eq* poly, const vector<int>& args) {
-    int total = 0;
-    for (const auto& term : poly->term_list) {
-        int term_val = term.coef;
-        for (const auto& var : term.var) {
-            auto it = find(poly->header.variables.begin(), poly->header.variables.end(), var.id.lexeme);
-            if (it == poly->header.variables.end()) {
-             //   cout << "this causing1";
-                syntax_error();
-                return 0;
-            }
-            int index = it - poly->header.variables.begin();
-            int arg_val = args[index];
-            term_val *= static_cast<int>(pow(arg_val, var.exponent));
-        }
-        total += term_val;
+// int Parser::cal_Poly(Poly_eq* poly, const vector<int>& args) {
+//     int total = 0;
+//     for (const auto& term : poly->term_list) {
+//         int term_val = term.coef;
+//         for (const auto& var : term.var) {
+//             auto it = find(poly->header.variables.begin(), poly->header.variables.end(), var.id.lexeme);
+//             if (it == poly->header.variables.end()) {
+//              //   cout << "this causing1";
+//                 syntax_error();
+//                 return 0;
+//             }
+//             int index = it - poly->header.variables.begin();
+//             int arg_val = args[index];
+//             term_val *= static_cast<int>(pow(arg_val, var.exponent));
+//         }
+//         total += term_val;
+//     }
+//     return total;
+// }
+
+// 3x^2(x(2+y) + 2)
+//(X+2)+3
+// x+2+3 ()
+// 3(x+2) + 2(x+2)
+int Parser::calc_Poly(vector<Token> tokens)
+{
+    int val =0;
+    // base
+    if(tokens.size() == 0)
+    {
+        // END  
     }
-    return total;
+    // CASE 1
+    
+    for(int i = 0; i<tokens.size(); i++)
+    {
+        // itr token
+        if(tokens[i].token_type == LPAREN)
+        {
+            int lpos = i;
+            int lcount =1;
+            int rpos = i;
+            for(int j = i; j<tokens.size(); j++)
+            {   
+                
+                if(tokens[j].token_type == LPAREN)
+                {lcount++;
+                    
+                }
+                if(tokens[j].token_type == RPAREN)
+                { 
+                lcount--;     
+                if(lcount==0)
+                {
+                    rpos =j;
+                    break;
+                }
+                
+                }
+                
+                
+
+            }
+
+            std::vector<Token> sub_tokens(tokens.begin() + lpos, tokens.begin() + rpos);
+            val =  calc_Poly(sub_tokens);
+           
+            
+        }
+        if(tokens[i].token_type == PLUS || tokens[i].token_type == MINUS)
+        {
+            
+        }
+    }
+    
+}   
+
+int Parser::recur_add_poly(vector<Token> work)
+{
+    
 }
