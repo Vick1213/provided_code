@@ -357,14 +357,7 @@ void Parser::parse_poly_section()
 
     parse_poly_decl_list();
 
-    for(const auto & Poly: Polynomials)
-    {
-        for(const auto & term: Poly.terms)
-        {
-            
-            cout<<term.lexeme<< " ";
-        }
-    }
+
     check_semantic_error1();
     check_semantic_error2();
 
@@ -1087,8 +1080,8 @@ vector<int> Parser::FinalCalc() {
 }
 
 int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
-    Poly_eq* poly = nullptr;
-    for (auto& p : ParsedPolynomials) {
+    poly_decl_t* poly = nullptr;
+    for (auto& p : Polynomials) {
         if (p.header.poly_name.lexeme == assign->id.lexeme) {
             poly = &p;
             break;
@@ -1108,6 +1101,7 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
             bool found_arg = false;
             for (const auto& var : active) {
                 if (var.id.lexeme == arg->id.lexeme) {
+                    
                     args.push_back(var.val);
                     found_arg = true;
                     break;
@@ -1135,9 +1129,33 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
         return 0;
     }
 
-    return cal_Poly(poly, args);
+
+        //poly->header.variables
+       
+    return cal_Poly(*poly, args);
 }
 
+
+int Parser::cal_Poly(poly_decl_t p, const std::vector<int> &args)
+{
+    vector<variable> polyactive;
+    int i =0 ;
+    for( const string & id: p.header.variables)
+    {
+        variable var;
+        Token name;
+        name.line_no = p.header.poly_name.line_no;
+        name.token_type = ID;
+        name.lexeme = id;
+        var.id = name;
+        var.exponent =1;
+        var.val = args[i];
+        polyactive.push_back(var);
+        i++;
+    }
+    int pos = 0;
+    return calc_Poly(p.terms, pos ,polyactive);
+}
 
 // int Parser::cal_Poly(Poly_eq* poly, const vector<int>& args) {
 //     int total = 0;
@@ -1168,7 +1186,7 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
 
 
 
-int Parser:: calc_Poly(vector<Token> &tokens, int& pos)
+int Parser:: calc_Poly(vector<Token> &tokens, int& pos, const vector<variable> active)
 {
     int result = 0;
     int current_value = 1;
@@ -1192,7 +1210,7 @@ int Parser:: calc_Poly(vector<Token> &tokens, int& pos)
         else if (token.token_type == POWER) {
             // Handle power operator (higher precedence)
             pos++;
-            int exponent = calc_Poly(tokens, pos); // Recursively evaluate the exponent
+            int exponent = calc_Poly(tokens, pos,active); // Recursively evaluate the exponent
             current_value = std::pow(current_value, exponent);
             continue; // Skip the pos++ at the end to avoid double increment
         } else if (token.token_type == PLUS || token.token_type == MINUS) {
@@ -1200,7 +1218,7 @@ int Parser:: calc_Poly(vector<Token> &tokens, int& pos)
             current_value = (token.token_type == PLUS) ? 1 : -1;
         } else if (token.token_type == LPAREN) {
             pos++;
-            int sub_result = calc_Poly(tokens, pos);
+            int sub_result = calc_Poly(tokens, pos, active);
             current_value *= sub_result;
         } else if (token.token_type == RPAREN) {
             result += current_value;
