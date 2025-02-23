@@ -116,11 +116,12 @@ private:
     void check_semantic_error1();
     void parseInput();
     void check_semantic_error3(Token id);
+    int calc_Poly(vector<Token> &tokens, int & pos);
     int cal_assign(AssignmentF* assin, std::vector<variable> &active );
     int cal_Poly(Poly_eq* poly, const std::vector<int>& args);
     std::pair<std::vector<variable>, size_t> parse_parenthetical(const std::vector<Token>& tokens, size_t pos); 
     variable parse_variable(const std::vector<Token>& tokens, size_t& pos);
-
+    int recur_add_poly(vector<Token> addtokens);
 public:
     Parser(); // Constructor is important!
     void ConsumeAllInput(); // If you still need it for testing

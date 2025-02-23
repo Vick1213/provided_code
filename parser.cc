@@ -1138,6 +1138,7 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
     return cal_Poly(poly, args);
 }
 
+
 // int Parser::cal_Poly(Poly_eq* poly, const vector<int>& args) {
 //     int total = 0;
 //     for (const auto& term : poly->term_list) {
@@ -1158,64 +1159,148 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
 //     return total;
 // }
 
-// 3x^2(x(2+y) + 2)
+// 3x^2( x(2+y) + 2) == 3*9 +  (x(2+y)+2)
 //(X+2)+3
 // x+2+3 ()
 // 3(x+2) + 2(x+2)
-int Parser::calc_Poly(vector<Token> tokens)
+//     \\//\\//\\//\\//\\//\\//\\//\\//
+       //\\//\\//\\//\\//\\//\\//\\//\\ 
+
+
+
+int Parser:: calc_Poly(vector<Token> &tokens, int& pos)
 {
-    int val =0;
-    // base
-    if(tokens.size() == 0)
-    {
-        // END  
-    }
-    // CASE 1
-    
-    for(int i = 0; i<tokens.size(); i++)
-    {
-        // itr token
-        if(tokens[i].token_type == LPAREN)
-        {
-            int lpos = i;
-            int lcount =1;
-            int rpos = i;
-            for(int j = i; j<tokens.size(); j++)
-            {   
-                
-                if(tokens[j].token_type == LPAREN)
-                {lcount++;
-                    
-                }
-                if(tokens[j].token_type == RPAREN)
-                { 
-                lcount--;     
-                if(lcount==0)
+    int result = 0;
+    int current_value = 1;
+
+    while (pos < tokens.size()) {
+        Token token = tokens[pos];
+
+        if (token.token_type == NUM) {
+            current_value *= stoi(token.lexeme);
+        }
+        else if (token.token_type ==  ID)
+         {
+            for(const variable & active_var : active)
+            {
+                if(active_var.id.lexeme == token.lexeme)
                 {
-                    rpos =j;
-                    break;
+                    current_value *= active_var.val ;
                 }
-                
-                }
-                
-                
-
             }
+        }
+        else if (token.token_type == POWER) {
+            // Handle power operator (higher precedence)
+            pos++;
+            int exponent = calc_Poly(tokens, pos); // Recursively evaluate the exponent
+            current_value = std::pow(current_value, exponent);
+            continue; // Skip the pos++ at the end to avoid double increment
+        } else if (token.token_type == PLUS || token.token_type == MINUS) {
+            result += current_value;
+            current_value = (token.token_type == PLUS) ? 1 : -1;
+        } else if (token.token_type == LPAREN) {
+            pos++;
+            int sub_result = calc_Poly(tokens, pos);
+            current_value *= sub_result;
+        } else if (token.token_type == RPAREN) {
+            result += current_value;
+            return result;
+        }
 
-            std::vector<Token> sub_tokens(tokens.begin() + lpos, tokens.begin() + rpos);
-            val =  calc_Poly(sub_tokens);
+        pos++;
+    }
+
+    result += current_value;
+    return result;
+}
+
+
+// int Parser::calc_Poly(vector<Token> tokens)
+// {
+//     int val =0;
+//     // base
+//     if(tokens.size() == 0)
+//     {
+//         return val;
+//     }
+//     // CASE 1
+    
+// // get every token before + - or (
+// // x^2(x+2)(2x)
+
+    
+//     for(int i = 0; i<tokens.size(); i++)\
+//     {  
+
+//         if(tokens[i].token_type == LPAREN)
+//         {
+//             int lpos = i;
+//             int lcount =1;
+//             int rpos = i;
+//             for(int j = i; j<tokens.size(); j++)
+//             {   
+//                 if(tokens[j].token_type == LPAREN)
+//                 {lcount++;
+                    
+//                 }
+//                 if(tokens[j].token_type == RPAREN)
+//                 { 
+//                 lcount--;     
+//                 if(lcount==0)
+//                 {
+//                     rpos =j;
+//                     break;
+//                 }
+                
+//                 }
+
+//             }
+//             lpos++;
+//             std::vector<Token> sub_tokens(tokens.begin() + lpos, tokens.begin() + rpos);
+//             val =  calc_Poly(sub_tokens);
            
             
-        }
-        if(tokens[i].token_type == PLUS || tokens[i].token_type == MINUS)
-        {
-            
-        }
-    }
-    
-}   
+//         }
+//         if(tokens[i].token_type == PLUS || tokens[i].token_type == MINUS)
+//         {
 
-int Parser::recur_add_poly(vector<Token> work)
-{
+//         }
+//     }
     
-}
+// }   
+
+// int Parser::recur_add_poly(vector<Token> addv)
+// {
+//     int val;
+//     // 3x^2+1
+//     if(addv.size() ==0)
+//     {
+//         //base
+//     }
+//     for(int i =0; i< addv.size();i++)
+//     {
+//         if(addv[i].token_type == LPAREN)
+//         {
+//             int lpos = i;
+//             int lcount =1;
+//             int rpos = i;
+//             for(int j = i; j<tokens.size(); j++)
+//             { 
+//                 if(tokens[j].token_type == LPAREN)
+//                 {lcount++;}
+//                 if(tokens[j].token_type == RPAREN)
+//                 { 
+//                 lcount--;     
+//                 if(lcount==0)
+//                 {
+//                     rpos =j;
+//                     break;
+//                 }
+//                 }
+//             }
+//             lpos++;
+//             std::vector<Token> sub_tokens(tokens.begin() + lpos, tokens.begin() + rpos);
+//             val =  calc_Poly(sub_tokens);
+//         }
+//     }
+// }
