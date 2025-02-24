@@ -73,7 +73,7 @@ struct Comp_input
     Exec execlist;
     vector<int> Inputs;
 };
-
+bool tasklist[5] = {false, false, false, false, false};
 Comp_input comp_input;
 // this function gets a token and checks if it is
 // of the expected type. If it is, the token is
@@ -538,8 +538,8 @@ void Parser::parseTerm(std::vector<Token> &terms)
     // Handle coefficient or minus sign
     if (lexer.peek(1).token_type == NUM)
     {
-        Token numToken = lexer.GetToken();
-        terms.push_back(numToken);
+        Token T = expect(NUM);
+        terms.push_back(T);
     }
     else if (lexer.peek(1).token_type == MINUS)
     {
@@ -1006,7 +1006,7 @@ vector<int> Parser::FinalCalc() {
     while (current != nullptr) {
         // checking for input
         if (current->input != nullptr) {
-          //  cout << "found inout";
+            //cout << "found inout";
             bool found = false;
             for (auto& active_var : active) {
                 if (active_var.id.lexeme == current->input->lexeme) {
@@ -1015,7 +1015,7 @@ vector<int> Parser::FinalCalc() {
                         comp_input.Inputs.erase(comp_input.Inputs.begin());
                         found = true;
                     } else {
-                //        cout << "this causing 8";
+                     //  cout << "this causing 8";
                         syntax_error();
                     }
                     break;
@@ -1027,39 +1027,39 @@ vector<int> Parser::FinalCalc() {
                     var.id = *current->input;
                     var.val = comp_input.Inputs[0];
                     comp_input.Inputs.erase(comp_input.Inputs.begin());
-            //        cout << var.id.lexeme << " is added active with val" << var.val ;
+                   // cout << var.id.lexeme << " is added active with val" << var.val ;
                     active.push_back(var);
                 } else {
-             //       cout << "this causing7;";
+                    //cout << "this causing7;";
                     syntax_error();
                 }
             }
         } else if (current->output != nullptr) {
             bool found = false;
-         //   cout << "found output"<< endl;
+            //cout << "found output"<< endl;
             for (const auto& active_var : active) {
-             //   cout << "found this lexme output"<< active_var.id.lexeme << endl;
+               // cout << "found this lexme output"<< active_var.id.lexeme << endl;
                 if (active_var.id.lexeme == current->output->lexeme) {
-              //      cout << "found active";
+                    //cout << "found active";
                     cout << active_var.val << endl;
                     found = true;
                     break;
                 }
             }
             if (!found) {
-          //      cout << "this causing6;";
+               // cout << "this causing6;";
                 syntax_error();
             }
         } else if (current->assignment != nullptr) {
-           // cout << "found assign";
-      //     cout << current->assignment->id.lexeme << "this shoould have been WWW" << endl;
+          //  cout << "found assign";
+            // cout << current->assignment->id.lexeme << "this shoould have been WWW" << endl;
            AssignmentF*  saved_assign = current->assignment;
            current->assignment = current->assignment->child; 
             int val = cal_assign(current->assignment, active);
             bool found = false;
             for (auto& active_var : active) {
                 if (active_var.id.lexeme == saved_assign->id.lexeme) {
-               //     cout << active_var.id.lexeme << "world foiund";
+                    //cout << active_var.id.lexeme << "world foiund";
                     active_var.val = val;
                     found = true;
                     break;
@@ -1079,7 +1079,7 @@ vector<int> Parser::FinalCalc() {
     return {}; // Return empty vector as per original code structure
 }
 
-int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
+int Parser::cal_assign(AssignmentF* assign, vector<variable> &active) {
     poly_decl_t* poly = nullptr;
     for (auto& p : Polynomials) {
         if (p.header.poly_name.lexeme == assign->id.lexeme) {
@@ -1088,7 +1088,7 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
         }
     }
     if (poly == nullptr) {
-       // cout << "this causing5;";
+       //cout << "this causing5;";
         syntax_error();
         return 0;
     }
@@ -1097,26 +1097,37 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
     AssignmentF* arg = assign->child;
     while (arg != nullptr) {
         if (arg->id.token_type == ID) {
-            //cout << arg->id.lexeme;
+          
             bool found_arg = false;
             for (const auto& var : active) {
                 if (var.id.lexeme == arg->id.lexeme) {
-                    
                     args.push_back(var.val);
                     found_arg = true;
                     break;
                 }
             }
             if (!found_arg) {
-            //    cout << "this causing4;";
-            
-                syntax_error();
-                return 0;
+                bool poly_found = false;
+                for (const poly_decl_t &p : Polynomials) {
+                    if (p.header.poly_name.lexeme == arg->id.lexeme) { // Removed semicolon
+         //               cout << "found id: " << p.header.poly_name.lexeme << endl;
+                        // Calculate the polynomial's value
+                        int val = cal_assign(arg, active);
+                        args.push_back(val);
+                        poly_found = true;
+                        break; // Exit loop once found
+                    }
+                }
+                if (!poly_found) {
+           //         cout << "this causing4;" << arg->id.lexeme << endl;
+                    syntax_error();
+                    return 0;
+                }
             }
         } else if (arg->id.token_type == NUM) {
             args.push_back(stoi(arg->id.lexeme));
         } else {
-         //   cout << "this causing3;";
+            //cout << "this causing3;";
             syntax_error();
             return 0;
         }
@@ -1124,14 +1135,11 @@ int Parser::cal_assign(AssignmentF* assign, vector<variable> &active ) {
     }
 
     if (args.size() != poly->header.variables.size()) {
-       // cout << "this causing2;";
+        //cout << "this causing2;";
         syntax_error();
         return 0;
     }
 
-
-        //poly->header.variables
-       
     return cal_Poly(*poly, args);
 }
 
@@ -1151,6 +1159,8 @@ int Parser::cal_Poly(poly_decl_t p, const std::vector<int> &args)
         var.exponent =1;
         var.val = args[i];
         polyactive.push_back(var);
+        
+       // cout << "get valid args"<< var.id.lexeme <<" "<<  var.val <<  endl;
         i++;
     }
     int pos = 0;
@@ -1184,53 +1194,70 @@ int Parser::cal_Poly(poly_decl_t p, const std::vector<int> &args)
 //     \\//\\//\\//\\//\\//\\//\\//\\//
        //\\//\\//\\//\\//\\//\\//\\//\\ 
 
+    int Parser::calc_Poly(vector<Token> &tokens, int& pos, const vector<variable> active)
+    {
+        int result = 0;
+        int current_value = 1;
+
+        while (pos < tokens.size()) {
+            Token token = tokens[pos];
+
+            if (token.token_type == NUM) {
+                current_value *= stoi(token.lexeme);
+             //   cout << "NUM: " << token.lexeme << ", current_value: " << current_value << endl;
+            }
+            else if (token.token_type == ID) {
+                for (const variable &active_var : active) {
+                    if (active_var.id.lexeme == token.lexeme) {
+                        int id_val =1;
+                        id_val = active_var.val;
+                        if(tokens[pos+1].token_type == POWER)
+                        {
+                            pos = pos+2;
+                            int exponent = 1;
+                            if (tokens[pos].token_type == NUM) {
+                                exponent = stoi(tokens[pos].lexeme);
+                              //  cout << "exponent: " << exponent << endl;
+                            
+                            }
+                            else
+                            syntax_error();
+
+                            id_val = std::pow(id_val, exponent);
+                         //   cout << "exponent2: " << id_val << endl;
+                        }
+                        
+                        
+                            current_value *= id_val;
+                        
 
 
-int Parser:: calc_Poly(vector<Token> &tokens, int& pos, const vector<variable> active)
-{
-    int result = 0;
-    int current_value = 1;
-
-    while (pos < tokens.size()) {
-        Token token = tokens[pos];
-
-        if (token.token_type == NUM) {
-            current_value *= stoi(token.lexeme);
-        }
-        else if (token.token_type ==  ID)
-         {
-            for(const variable & active_var : active)
-            {
-                if(active_var.id.lexeme == token.lexeme)
-                {
-                    current_value *= active_var.val ;
+                      //  cout << "ID: " << token.lexeme << ", active_var.val: " << active_var.val << ", current_value: " << current_value << endl;
+                    }
                 }
             }
-        }
-        else if (token.token_type == POWER) {
-            // Handle power operator (higher precedence)
+           else if (token.token_type == PLUS || token.token_type == MINUS) {
+                result += current_value;
+                //cout << "OPERATOR: " << token.lexeme << ", result: " << result << endl;
+                current_value = (token.token_type == PLUS) ? 1 : -1;
+            } else if (token.token_type == LPAREN) {
+                pos++;
+                int sub_result = calc_Poly(tokens, pos, active);
+                current_value *= sub_result;
+               // cout << "LPAREN sub_result: " << sub_result << ", current_value: " << current_value << endl;
+            } else if (token.token_type == RPAREN) {
+                result += current_value;
+               // cout << "RPAREN result: " << result << endl;
+                return result;
+            }
+
             pos++;
-            int exponent = calc_Poly(tokens, pos,active); // Recursively evaluate the exponent
-            current_value = std::pow(current_value, exponent);
-            continue; // Skip the pos++ at the end to avoid double increment
-        } else if (token.token_type == PLUS || token.token_type == MINUS) {
-            result += current_value;
-            current_value = (token.token_type == PLUS) ? 1 : -1;
-        } else if (token.token_type == LPAREN) {
-            pos++;
-            int sub_result = calc_Poly(tokens, pos, active);
-            current_value *= sub_result;
-        } else if (token.token_type == RPAREN) {
-            result += current_value;
-            return result;
         }
 
-        pos++;
+        result += current_value;
+      //  cout << "FINAL result: " << result << endl;
+        return result;
     }
-
-    result += current_value;
-    return result;
-}
 
 
 // int Parser::calc_Poly(vector<Token> tokens)
